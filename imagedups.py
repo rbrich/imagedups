@@ -12,35 +12,80 @@ from collections import OrderedDict
 class HashDB:
     def __init__(self):
         self._hashes = OrderedDict()
+        self._timestamp = int(time.time())
+
+    @property
+    def timestamp(self):
+        """Time of hash database creation."""
+        return self._timestamp
 
     def add(self, fname, imghash):
+        """Add hash to database.
+
+        Args:
+            fname: File name of image hashed, should not contain path.
+            imghash: The hash.
+
+        """
         self._hashes[fname] = imghash
 
     def get(self, fname):
+        """Get hash from database.
+
+        If not found, returns None.
+
+        """
         if fname in self._hashes:
             return self._hashes[fname]
 
     def save(self, dbfile):
+        """Save database to file.
+
+        Empty database is "saved" as no file.
+        Existing file is overwritten or removed.
+
+        Args:
+            dbfile: Target file name, including path.
+
+        """
         if not self._hashes:
+            try:
+                os.unlink(dbfile)
+            except OSError:
+                pass
             return
         with open(dbfile, 'w', encoding='utf8') as f:
+            print('#algorithm DCT', file=f)
+            print('#timestamp', self._timestamp, file=f)
             for fname, imghash in self._hashes.items():
                 print('%016X' % imghash, fname, file=f)
 
     def load(self, dbfile, path=''):
+        """Load database from file.
+
+        Args:
+            dbfile: Source file, including path.
+            path: Path do prepend to all file names loaded from file.
+
+        """
         with open(dbfile, 'r', encoding='utf8') as f:
             for line in f:
-                hexhash, fname = line.rstrip().split(' ')
-                imghash = int(hexhash, 16)
-                self.add(os.path.join(path, fname), imghash)
+                if line[0] == '#':
+                    self._parse_control_line(line)
+                else:
+                    hexhash, fname = line.rstrip().split(' ', 1)
+                    imghash = int(hexhash, 16)
+                    self.add(os.path.join(path, fname), imghash)
 
     def query(self, imghash, threshold=0):
+        """Find images close to given hash."""
         for fname, hash_b in self._hashes.items():
             distance = phash.hamming_distance(imghash, hash_b)
             if distance <= threshold:
                 yield fname, distance
 
     def find_all_dups(self, threshold=0):
+        """Find similar images in database."""
         hash_items = list(self._hashes.items())
         for idx, (fname_a, hash_a) in enumerate(hash_items):
             for fname_b, hash_b in hash_items[idx+1:]:
@@ -48,48 +93,53 @@ class HashDB:
                 if distance <= threshold:
                     yield fname_a, fname_b, distance
 
+    def _parse_control_line(self, line):
+        parts = line.split(' ')
+        if len(parts) == 2 and parts[0] == '#timestamp':
+            self._timestamp = int(parts[1])
+
 
 class ImageDups:
 
     """Finds duplicate images using pHash library
 
     Algorithm has two parts:
-        * compute hash of images
+        * compute hashes of images
         * compare hashes
 
-    To compute hashes, use 'hash' command. Computed hashes are written to file
+    To compute hashes, use '--hash' command. Computed hashes are written to file
     named .phash in target directory.
 
-    To compare hashes and search for duplicates, use 'search' command. This reads
+    To compare hashes and search for duplicates, use '--search' command. This reads
     .phash file, compares each hash with each other and prints out pairs of images
     with hash distance up to threshold.
 
-    Program works with images in one directory, not including subdirectories.
+    Both phases are run unless one of --hash or --search commands is given.
 
     """
 
-    FORMATS = ['.jpg']
+    FORMATS = ['.jpeg', '.jpg', '.tiff', '.tif']
     DBFILE = '.imagephash'
 
     def __init__(self):
         self.parser = argparse.ArgumentParser(
             description=self.__doc__.strip(),
             formatter_class=argparse.RawDescriptionHelpFormatter)
-        self.parser.add_argument('cmd', help='Command: hash, search')
         self.parser.add_argument('path', help='Path to directory of images')
+        self.parser.add_argument('--hash', action='store_true', help='Compute hashes of images')
+        self.parser.add_argument('--search', action='store_true', help='Compare hashes, find similars')
         self.parser.add_argument('-t', '--threshold', type=int, default=5, help='Maximum distance of compared images.')
         self.parser.add_argument('-f', '--samplefile', help='Search for duplicates of this file.')
         self.parser.add_argument('-r', '--recursive', action='store_true', help='Walk subdirectories recursively.')
-        self.parser.add_argument('-x', '--extviewer', action='store_true', help='Open images in external viewer.')
+        self.parser.add_argument('-x', '--extviewer', action='store_true', help='Use external program to view matching images.')
+        self.parser.add_argument('-p', '--program', default='gthumb', help='External program to view images. See -x. Default is gthumb.')
 
     def main(self):
         self.args = self.parser.parse_args()
-        if self.args.cmd == 'hash':
+        if self.args.hash or not self.args.search:
             self.cmd_hash()
-        elif self.args.cmd == 'search':
+        if self.args.search or not self.args.hash:
             self.cmd_search()
-        else:
-            raise Exception('Unknown command: %s' % self.args.cmd)
 
     def cmd_hash(self):
         if self.args.recursive:
@@ -112,7 +162,10 @@ class ImageDups:
                     pass
         else:
             dbfile = os.path.join(self.args.path, self.DBFILE)
-            hashdb.load(dbfile, self.args.path)
+            try:
+                hashdb.load(dbfile, self.args.path)
+            except IOError:
+                pass
         if self.args.samplefile:
             self.compare_with_db(hashdb, self.args.samplefile)
         else:
@@ -120,7 +173,9 @@ class ImageDups:
 
     def walk_directories(self, path):
         for dirpath, _dirnames, filenames in os.walk(path):
-            yield dirpath, [fname for fname in filenames if self.is_image(fname)]
+            filenames = [fname for fname in filenames if self.is_image(fname)]
+            filenames.sort()
+            yield dirpath, filenames
 
     def list_images(self, path):
         for fname in sorted(os.listdir(path)):
@@ -132,6 +187,10 @@ class ImageDups:
         if ext.lower() in self.FORMATS:
             return True
 
+    def time_changed(self, file):
+        stat = os.stat(file)
+        return int(max(stat.st_ctime, stat.st_mtime))
+
     def update_db(self, path, filenames, dbfile, rebuild=False):
         old_hashdb = HashDB()
         new_hashdb = HashDB()
@@ -140,16 +199,19 @@ class ImageDups:
                 old_hashdb.load(dbfile)
             except IOError:
                 pass
-        for fname in filenames:
-            imghash = old_hashdb.get(fname)
-            if imghash is None:
-                try:
-                    imghash = phash.dct_imagehash(os.path.join(path, fname))
-                except IOError:
-                    continue
-                print('%016X' % imghash, os.path.join(path, fname))
-            new_hashdb.add(fname, imghash)
-        new_hashdb.save(dbfile)
+        try:
+            for fname in filenames:
+                imghash = old_hashdb.get(fname)
+                file = os.path.join(path, fname)
+                if imghash is None or old_hashdb.timestamp < self.time_changed(file):
+                    try:
+                        imghash = phash.dct_imagehash(file)
+                    except IOError:
+                        continue
+                    print('%016X' % imghash, os.path.join(path, fname))
+                new_hashdb.add(fname, imghash)
+        finally:
+            new_hashdb.save(dbfile)
 
     def search_db_for_dups(self, hashdb):
         last_fname = None
@@ -171,9 +233,10 @@ class ImageDups:
 
     def compare_with_db(self, hashdb, samplefile):
         imghash = phash.dct_imagehash(samplefile)
-        file_list = []
+        print(samplefile)
+        file_list = [samplefile]
         for fname, distance in hashdb.query(imghash, self.args.threshold):
-            self.print_out(self, fname, distance)
+            self.print_out(fname, distance)
             file_list.append(fname)
         self.view(file_list)
 
@@ -188,7 +251,7 @@ class ImageDups:
             print('* Waiting for subprocess...', end='')
             sys.stdout.flush()
             with open(os.devnull, "w") as devnull:
-                subprocess.call(['gthumb'] + file_list, stdout=devnull, stderr=devnull)
+                subprocess.call([self.args.program] + file_list, stdout=devnull, stderr=devnull)
             print('\r' + ' '*30 + '\r', end='')
             if test_stop and self.test_stop():
                 return True
@@ -197,7 +260,7 @@ class ImageDups:
         print('* Press Ctrl-C to stop', end='')
         sys.stdout.flush()
         try:
-            for _i in range(4):
+            for _i in range(3):
                 time.sleep(0.5)
                 print('.', end='')
                 sys.stdout.flush()
@@ -208,5 +271,8 @@ class ImageDups:
 
 
 prog = ImageDups()
-prog.main()
+try:
+    prog.main()
+except KeyboardInterrupt:
+    print('Interrupted...')
 
