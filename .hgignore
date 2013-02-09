@@ -1,0 +1,4 @@
+^build/
+^phash.cpp$
+^test(dir|tree)
+^\.(pydev)?project$
