@@ -145,23 +145,26 @@ class ImageDups:
             description=self.__doc__.strip(),
             formatter_class=argparse.RawDescriptionHelpFormatter)
         self.parser.add_argument('path', help='Path to directory of images')
-        self.parser.add_argument('--hash', action='store_true', help='Compute hashes of images')
-        self.parser.add_argument('--search', action='store_true', help='Compare hashes, find similars')
-        self.parser.add_argument('-a', '--algorithm', default='dct', help='Image hash algorithm. Options: dct|mh. Default: dct.')
+        self.parser.add_argument('--hash', action='store_true', help='Compute hashes of images.')
+        self.parser.add_argument('--search', action='store_true', help='Compare hashes, find similars.')
+        self.parser.add_argument('--clean', action='store_true', help='Remove files created during --hash phase.')
+        self.parser.add_argument('-a', '--algorithm', default='dct', help='Image hash algorithm. Options: dct|mh. Default: dct')
         self.parser.add_argument('-t', '--threshold', type=float, default=0.1, help='Maximum normalized distance of compared images. Default: 0.1')
         self.parser.add_argument('-f', '--samplefile', help='Search for duplicates of this file.')
         self.parser.add_argument('-r', '--recursive', action='store_true', help='Walk subdirectories recursively.')
         self.parser.add_argument('-x', '--extviewer', action='store_true', help='Use external program to view matching images.')
-        self.parser.add_argument('-p', '--program', default='gthumb', help='External program to view images. See -x. Default: gthumb.')
+        self.parser.add_argument('-p', '--program', default='gthumb', help='External program to view images. See -x. Default: gthumb')
 
     def main(self):
         self.args = self.parser.parse_args()
         self.dbfile += '_' + self.args.algorithm
         self.imagehash_class = ImageHash.get_subclass(self.args.algorithm)
-        if self.args.hash or not self.args.search:
+        if self.args.hash or not (self.args.search or self.args.clean):
             self.cmd_hash()
-        if self.args.search or not self.args.hash:
+        if self.args.search or not (self.args.hash or self.args.clean):
             self.cmd_search()
+        if self.args.clean:
+            self.cmd_clean()
 
     def cmd_hash(self):
         if self.args.recursive:
@@ -192,6 +195,15 @@ class ImageDups:
             self.compare_with_db(hashdb, self.args.samplefile)
         else:
             self.search_db_for_dups(hashdb)
+
+    def cmd_clean(self):
+        if self.args.recursive:
+            for dirpath, _filenames in self.walk_directories(self.args.path):
+                dbfile = os.path.join(dirpath, self.dbfile)
+                self.clean_db(dbfile)
+        else:
+            dbfile = os.path.join(self.args.path, self.dbfile)
+            self.clean_db(dbfile)
 
     def walk_directories(self, path):
         for dirpath, _dirnames, filenames in os.walk(path):
@@ -235,6 +247,15 @@ class ImageDups:
                 new_hashdb.add(fname, imghash)
         finally:
             new_hashdb.save(dbfile)
+
+    def clean_db(self, dbfile):
+        hashdb = HashDB(self.imagehash_class)
+        try:
+            # if it can be loaded, than it's our database
+            hashdb.load(dbfile)
+        except IOError:
+            return
+        os.unlink(dbfile)
 
     def search_db_for_dups(self, hashdb):
         last_fname = None
