@@ -16,6 +16,7 @@ setup(
     url='http://hg.devl.cz/imagedups/',
     keywords=['duplicate images', 'perceptual hash', 'pHash'],
     ext_modules = cythonize("phash.pyx"),
+    packages=['imagedups'],
     scripts=['build/imagedups'],
     )
 

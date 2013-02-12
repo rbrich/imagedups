@@ -90,3 +90,24 @@ class MhImageHash(ImageHash):
     def __str__(self):
         return binascii.hexlify(self._hash).upper().decode()
 
+
+class RadialImageHash(ImageHash):
+    def __init__(self):
+        self._hash = b''
+
+    @staticmethod
+    def algorithm():
+        return 'radial'
+
+    def compute(self, filename):
+        self._hash = phash.radial_imagehash(filename)
+
+    def load(self, hexhash):
+        self._hash = binascii.unhexlify(hexhash.encode())
+
+    def distance(self, other):
+        return 1.0 - phash.crosscorr(self._hash, other._hash)
+
+    def __str__(self):
+        return binascii.hexlify(self._hash).upper().decode()
+
