@@ -42,7 +42,7 @@ class ImageDups:
         self.parser.add_argument('--search', action='store_true', help='Compare hashes, find similars.')
         self.parser.add_argument('--clean', action='store_true', help='Remove files created during --hash phase.')
         self.parser.add_argument('-a', '--algorithm', default='dct', help='Image hash algorithm. Options: dct|mh. Default: dct')
-        self.parser.add_argument('-t', '--threshold', type=float, default=0.1, help='Maximum normalized distance of compared images. Default: 0.1')
+        self.parser.add_argument('-t', '--threshold', type=float, default=90.0, help='Minimal similarity ratio of compared images. Default: 90%')
         self.parser.add_argument('-f', '--samplefile', help='Search for duplicates of this file.')
         self.parser.add_argument('-r', '--recursive', action='store_true', help='Walk subdirectories recursively.')
         self.parser.add_argument('-x', '--extviewer', action='store_true', help='Use external program to view matching images.')
@@ -154,7 +154,8 @@ class ImageDups:
         last_fname = None
         i = 1
         file_list = []
-        for fname_a, fname_b, distance in hashdb.find_all_dups(self.args.threshold):
+        threshold = 1.0 - (self.args.threshold / 100)
+        for fname_a, fname_b, distance in hashdb.find_all_dups(threshold):
             if fname_a != last_fname:
                 if self.view(file_list, test_stop=True):
                     file_list = []
@@ -172,16 +173,15 @@ class ImageDups:
         imghash = phash.dct_imagehash(samplefile)
         print(samplefile)
         file_list = [samplefile]
-        for fname, distance in hashdb.query(imghash, self.args.threshold):
+        threshold = 1.0 - (self.args.threshold / 100)
+        for fname, distance in hashdb.query(imghash, threshold):
             self.print_out(fname, distance)
             file_list.append(fname)
         self.view(file_list)
 
     def print_out(self, fname, distance):
-        if distance == 0:
-            print(fname, '(equal)')
-        else:
-            print(fname, '(distance %.1f%%)' % (distance*100.))
+        similarity = (1.0 - distance) * 100.0
+        print(fname, '(%.0f%%)' % similarity)
 
     def view(self, file_list, test_stop=False):
         if file_list and self.args.extviewer:
