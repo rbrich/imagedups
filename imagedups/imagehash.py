@@ -3,6 +3,9 @@ import binascii
 
 
 class ImageHash:
+
+    """ImageHash base class"""
+
     @staticmethod
     def get_subclass(algorithm):
         """Return ImageHash subclass which implements algorithm.
@@ -50,6 +53,9 @@ class ImageHash:
 
 
 class DctImageHash(ImageHash):
+
+    """DCT image hash algorithm"""
+
     def __init__(self):
         self._hash = 0
 
@@ -71,6 +77,9 @@ class DctImageHash(ImageHash):
 
 
 class MhImageHash(ImageHash):
+
+    """Marr-Hildreth image hash algorithm"""
+
     def __init__(self):
         self._hash = b''
 
@@ -92,6 +101,9 @@ class MhImageHash(ImageHash):
 
 
 class RadialImageHash(ImageHash):
+
+    """Radial variance image hash algorithm"""
+
     def __init__(self):
         self._hash = b''
 
