@@ -1,0 +1,32 @@
+ImageDups
+=========
+
+Finds duplicate images using pHash library.
+
+Build:
+    ./setup.py build
+
+Build requires:
+    python3-dev
+    cython3
+    libphash-dev
+
+Install:
+    sudo ./setup.py install
+
+For usage info, see:
+    imagedups --help
+
+
+Programming Documentation
+-------------------------
+
+Build:
+    cd doc
+    make html
+
+Build requires:
+    python3-sphinx
+
+Read in default browser:
+    make read

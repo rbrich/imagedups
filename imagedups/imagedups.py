@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import phash
 import argparse
 import os.path
@@ -205,11 +203,4 @@ class ImageDups:
             print()
             return True
         print('\r' + ' '*30 + '\r', end='')
-
-
-prog = ImageDups()
-try:
-    prog.main()
-except KeyboardInterrupt:
-    print('Interrupted...')
 

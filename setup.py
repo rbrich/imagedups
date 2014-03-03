@@ -1,11 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from distutils.core import setup
 from Cython.Build import cythonize
-import os, shutil
-
-# install imagedups without .py extension
-shutil.copyfile('imagedups.py', 'build/imagedups')
 
 setup(
     name='imagedups',
@@ -17,7 +13,6 @@ setup(
     keywords=['duplicate images', 'perceptual hash', 'pHash'],
     ext_modules = cythonize("phash.pyx"),
     packages=['imagedups'],
-    scripts=['build/imagedups'],
+    scripts=['bin/imagedups'],
     )
 
-os.unlink('build/imagedups')
