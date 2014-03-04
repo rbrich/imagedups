@@ -1,4 +1,3 @@
-import phash
 import argparse
 import os.path
 import subprocess
@@ -168,7 +167,8 @@ class ImageDups:
         self.view(file_list)
 
     def compare_with_db(self, hashdb, samplefile):
-        imghash = phash.dct_imagehash(samplefile)
+        imghash = self.imagehash_class()
+        imghash.compute(samplefile)
         print(samplefile)
         file_list = [samplefile]
         threshold = 1.0 - (self.args.threshold / 100)
