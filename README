@@ -3,6 +3,18 @@ ImageDups
 
 Finds duplicate images using pHash library.
 
+There are three algorithms for image comparison:
+ * dct - Standard, works well
+ * mh - Slower
+ * radial - Faster
+
+For usage info, see:
+    imagedups --help
+
+
+Installation
+------------
+
 Build:
     ./setup.py build
 
@@ -13,9 +25,6 @@ Build requires:
 
 Install:
     sudo ./setup.py install
-
-For usage info, see:
-    imagedups --help
 
 
 Programming Documentation

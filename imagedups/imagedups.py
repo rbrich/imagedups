@@ -38,7 +38,7 @@ class ImageDups:
         self.parser.add_argument('--hash', action='store_true', help='Compute hashes of images.')
         self.parser.add_argument('--search', action='store_true', help='Compare hashes, find similars.')
         self.parser.add_argument('--clean', action='store_true', help='Remove files created during --hash phase.')
-        self.parser.add_argument('-a', '--algorithm', default='dct', help='Image hash algorithm. Options: dct|mh. Default: dct')
+        self.parser.add_argument('-a', '--algorithm', default='dct', help='Image hash algorithm. Options: dct | mh | radial. Default: dct')
         self.parser.add_argument('-t', '--threshold', type=float, default=90.0, help='Minimal similarity ratio of compared images. Default: 90%%')
         self.parser.add_argument('-f', '--samplefile', help='Search for duplicates of this file.')
         self.parser.add_argument('-r', '--recursive', action='store_true', help='Walk subdirectories recursively.')
