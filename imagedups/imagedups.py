@@ -111,8 +111,8 @@ class ImageDups:
         if ext.lower() in self.FORMATS:
             return True
 
-    def time_changed(self, file):
-        stat = os.stat(file)
+    def time_changed(self, filename):
+        stat = os.stat(filename)
         return int(max(stat.st_ctime, stat.st_mtime))
 
     def update_db(self, path, filenames, dbfile, rebuild=False):
@@ -126,11 +126,10 @@ class ImageDups:
         try:
             for fname in filenames:
                 imghash = old_hashdb.get(fname)
-                file = os.path.join(path, fname)
-                if imghash is None or old_hashdb.timestamp < self.time_changed(file):
+                filepath = os.path.join(path, fname)
+                if imghash is None or old_hashdb.timestamp < self.time_changed(filepath):
                     try:
-                        imghash = self.imagehash_class()
-                        imghash.compute(file)
+                        imghash = self.imagehash_class(filepath)
                     except IOError:
                         continue
                     print(imghash, os.path.join(path, fname))
@@ -167,8 +166,7 @@ class ImageDups:
         self.view(file_list)
 
     def compare_with_db(self, hashdb, samplefile):
-        imghash = self.imagehash_class()
-        imghash.compute(samplefile)
+        imghash = self.imagehash_class(samplefile)
         print(samplefile)
         file_list = [samplefile]
         threshold = 1.0 - (self.args.threshold / 100)

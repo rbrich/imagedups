@@ -6,6 +6,10 @@ class ImageHash:
 
     """ImageHash base class"""
 
+    def __init__(self, filename=None):
+        if filename:
+            self.compute(filename)
+
     @staticmethod
     def get_subclass(algorithm):
         """Return ImageHash subclass which implements algorithm.
@@ -56,8 +60,9 @@ class DctImageHash(ImageHash):
 
     """DCT image hash algorithm"""
 
-    def __init__(self):
+    def __init__(self, *args):
         self._hash = 0
+        ImageHash.__init__(self, *args)
 
     @staticmethod
     def algorithm():
@@ -80,8 +85,9 @@ class MhImageHash(ImageHash):
 
     """Marr-Hildreth image hash algorithm"""
 
-    def __init__(self):
+    def __init__(self, *args):
         self._hash = b''
+        ImageHash.__init__(self, *args)
 
     @staticmethod
     def algorithm():
@@ -104,8 +110,9 @@ class RadialImageHash(ImageHash):
 
     """Radial variance image hash algorithm"""
 
-    def __init__(self):
+    def __init__(self, *args):
         self._hash = b''
+        ImageHash.__init__(self, *args)
 
     @staticmethod
     def algorithm():
