@@ -151,7 +151,7 @@ class ImageDups:
         i = 1
         file_list = []
         threshold = 1.0 - (self.args.threshold / 100)
-        for fname_a, fname_b, distance in hashdb.find_all_dups(threshold):
+        for fname_a, fname_b, distance in hashdb.find_all_dups_without_derived(threshold):
             if fname_a != last_fname:
                 if self.view(file_list, test_stop=True):
                     file_list = []
@@ -180,6 +180,11 @@ class ImageDups:
         print(fname, '(%.0f%%)' % similarity)
 
     def view(self, file_list, test_stop=False):
+        """Display files from `file_list` using external program.
+
+        Waits for external program to exit before continuing.
+
+        """
         if file_list and self.args.extviewer:
             print('* Waiting for subprocess...', end='')
             sys.stdout.flush()

@@ -88,21 +88,36 @@ class HashDB:
             fname_a, fname_b: File names of pair of similar images.
             distance: Normalized distance of hashes.
 
-        Returned pairs may be grouped by fname_a.
+        Returned pairs are sorted by fname_a.
 
         """
         hash_items = list(self._hashes.items())
-        reported = set()
         for idx, (fname_a, hash_a) in enumerate(hash_items):
-            if fname_a in reported:
-                # this avoids reporting subsets of already reported groups
-                # For example: (a,x), (a,y), ... avoids (x,y) later
-                continue
             for fname_b, hash_b in hash_items[idx+1:]:
                 distance = hash_a.distance(hash_b)
                 if distance <= threshold:
-                    reported.add(fname_b)
                     yield fname_a, fname_b, distance
+
+    def find_all_dups_without_derived(self, threshold=0.0):
+        """Find similar images in database, skipping derived pairs.
+
+        This is variant of :meth:`find_all_dups`, which avoids
+        reporting subsets of already reported groups.
+        For example: (x,a), (x,b), ... avoids (a,b) later.
+
+        """
+        reported = dict()
+        for fname_a, fname_b, distance in self.find_all_dups(threshold):
+            for key in reported:
+                if fname_a in reported[key] and fname_b in reported[key]:
+                    # If both A and B were reported before as duplicates of X,
+                    # skip this pair
+                    break
+            else:
+                yield fname_a, fname_b, distance
+                if not fname_a in reported:
+                    reported[fname_a] = set()
+                reported[fname_a].add(fname_b)
 
     def _parse_control_line(self, line):
         parts = line.split(' ')
