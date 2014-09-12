@@ -5,3 +5,4 @@ __pycache__
 ^phash\..*\.so$
 ^testtree/
 ^\.(pydev)?project$
+^\.idea/

@@ -41,7 +41,7 @@ class ImageDups:
             formatter_class=argparse.RawDescriptionHelpFormatter)
         self.parser.add_argument('path', nargs='?', help='Path to directory of images')
         self.parser.add_argument('--hash', action='store_true', help='Compute hashes of images.')
-        self.parser.add_argument('--search', action='store_true', help='Compare hashes, find similars.')
+        self.parser.add_argument('--search', action='store_true', help='Compare hashes, find similar images.')
         self.parser.add_argument('--clean', action='store_true', help='Remove files created during --hash phase.')
         self.parser.add_argument('-a', '--algorithm', default='dct', help='Image hash algorithm. Options: dct | mh | radial. Default: dct')
         self.parser.add_argument('-t', '--threshold', type=float, default=90.0, help='Minimal similarity ratio of compared images. Default: 90%%')
@@ -54,6 +54,8 @@ class ImageDups:
 
     def main(self):
         self.args = self.parser.parse_args()
+        self.args.dbpath = os.path.expanduser(self.args.dbpath)
+        os.makedirs(self.args.dbpath, exist_ok=True)
         self.dbfile += '_' + self.args.algorithm
         self.imagehash_class = ImageHash.get_subclass(self.args.algorithm)
         if self.args.hash or not (self.args.search or self.args.clean):
@@ -67,13 +69,12 @@ class ImageDups:
         if not self.args.path:
             print('Path must be specified')
             return
-        basepath = os.path.expanduser(self.args.dbpath)
-        dbindex = DBIndex(os.path.join(basepath, 'index'))
+        dbindex = DBIndex(os.path.join(self.args.dbpath, 'index'))
         try:
             for dirpath, filenames in self.all_directories_with_filenames():
                 if not self.args.inplace:
                     name = dbindex.get_name_by_path(dirpath)
-                    dbfile = os.path.join(basepath, name + self.dbfile)
+                    dbfile = os.path.join(self.args.dbpath, name + self.dbfile)
                 else:
                     dbfile = os.path.join(dirpath, self.dbfile)
                 self.update_db(dirpath, filenames, dbfile)
@@ -81,20 +82,19 @@ class ImageDups:
             dbindex.save()
 
     def cmd_search(self):
-        homepath = os.path.expanduser(self.args.dbpath)
-        dbindex = DBIndex(os.path.join(homepath, 'index'))
+        dbindex = DBIndex(os.path.join(self.args.dbpath, 'index'))
         hashdb = HashDB(self.imagehash_class)
         if self.args.path:
             # Search for duplicates in path
             for dirpath in self.all_directories():
                 inplace_dbfile = os.path.join(dirpath, self.dbfile)
                 name = dbindex.get_name_by_path(dirpath)
-                home_dbfile = os.path.join(homepath, name + self.dbfile)
+                home_dbfile = os.path.join(self.args.dbpath, name + self.dbfile)
                 hashdb.try_load(inplace_dbfile, home_dbfile, basepath=dirpath)
         else:
             # Search for duplicates in all hashed images from database
             for name, path in dbindex.items():
-                home_dbfile = os.path.join(homepath, name + self.dbfile)
+                home_dbfile = os.path.join(self.args.dbpath, name + self.dbfile)
                 hashdb.try_load(home_dbfile, basepath=path)
         if self.args.samplefile:
             self.compare_with_db(hashdb, self.args.samplefile)
