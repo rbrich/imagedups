@@ -6,6 +6,7 @@ import time
 
 from imagedups.imagehash import ImageHash
 from imagedups.hashdb import HashDB
+from imagedups.dbindex import DBIndex
 
 
 class ImageDups:
@@ -16,14 +17,18 @@ class ImageDups:
         * compute hashes of images
         * compare hashes
 
-    To compute hashes, use '--hash' command. Computed hashes are written to file
-    named .phash in target directory.
+    To compute hashes, use '--hash' command. Computed hashes are written
+    to hash database in '~/.imagedups' directory.
+    Use '-r' option for recursive search of images in subdirectories.
 
-    To compare hashes and search for duplicates, use '--search' command. This reads
-    .phash file, compares each hash with each other and prints out pairs of images
-    with hash distance up to threshold.
+    To compare hashes and search for duplicates, use '--search' command.
+    This reads hash database, compares each hash with each other
+    and prints out pairs of images with hash distance up to threshold.
 
-    Both phases are run unless one of --hash or --search commands is given.
+    Both phases are run in succession if no command is given.
+
+    To clean the hash database, use '--clean' command
+    or just remove '~/.imagedups' directory.
 
     """
 
@@ -34,7 +39,7 @@ class ImageDups:
         self.parser = argparse.ArgumentParser(
             description=self.__doc__.strip(),
             formatter_class=argparse.RawDescriptionHelpFormatter)
-        self.parser.add_argument('path', help='Path to directory of images')
+        self.parser.add_argument('path', nargs='?', help='Path to directory of images')
         self.parser.add_argument('--hash', action='store_true', help='Compute hashes of images.')
         self.parser.add_argument('--search', action='store_true', help='Compare hashes, find similars.')
         self.parser.add_argument('--clean', action='store_true', help='Remove files created during --hash phase.')
@@ -42,8 +47,10 @@ class ImageDups:
         self.parser.add_argument('-t', '--threshold', type=float, default=90.0, help='Minimal similarity ratio of compared images. Default: 90%%')
         self.parser.add_argument('-f', '--samplefile', help='Search for duplicates of this file.')
         self.parser.add_argument('-r', '--recursive', action='store_true', help='Walk subdirectories recursively.')
+        self.parser.add_argument('-i', '--inplace', action='store_true', help='Write .imagehash file in same directory where images reside.')
         self.parser.add_argument('-x', '--extviewer', action='store_true', help='Use external program to view matching images.')
         self.parser.add_argument('-p', '--program', default='gthumb', help='External program to view images. See -x. Default: gthumb')
+        self.parser.add_argument('--dbpath', default='~/.imagedups', help='Path where database files will be written and read from.')
 
     def main(self):
         self.args = self.parser.parse_args()
@@ -57,49 +64,64 @@ class ImageDups:
             self.cmd_clean()
 
     def cmd_hash(self):
-        if self.args.recursive:
-            for dirpath, filenames in self.walk_directories(self.args.path):
-                dbfile = os.path.join(dirpath, self.dbfile)
+        if not self.args.path:
+            print('Path must be specified')
+            return
+        basepath = os.path.expanduser(self.args.dbpath)
+        dbindex = DBIndex(os.path.join(basepath, 'index'))
+        try:
+            for dirpath, filenames in self.all_directories_with_filenames():
+                if not self.args.inplace:
+                    name = dbindex.get_name_by_path(dirpath)
+                    dbfile = os.path.join(basepath, name + self.dbfile)
+                else:
+                    dbfile = os.path.join(dirpath, self.dbfile)
                 self.update_db(dirpath, filenames, dbfile)
-        else:
-            filenames = self.list_images(self.args.path)
-            dbfile = os.path.join(self.args.path, self.dbfile)
-            self.update_db(self.args.path, filenames, dbfile)
+        finally:
+            dbindex.save()
 
     def cmd_search(self):
+        homepath = os.path.expanduser(self.args.dbpath)
+        dbindex = DBIndex(os.path.join(homepath, 'index'))
         hashdb = HashDB(self.imagehash_class)
-        if self.args.recursive:
-            for dirpath, _filenames in self.walk_directories(self.args.path):
-                dbfile = os.path.join(dirpath, self.dbfile)
-                try:
-                    hashdb.load(dbfile, dirpath)
-                except IOError:
-                    pass
+        if self.args.path:
+            # Search for duplicates in path
+            for dirpath in self.all_directories():
+                inplace_dbfile = os.path.join(dirpath, self.dbfile)
+                name = dbindex.get_name_by_path(dirpath)
+                home_dbfile = os.path.join(homepath, name + self.dbfile)
+                hashdb.try_load(inplace_dbfile, home_dbfile, basepath=dirpath)
         else:
-            dbfile = os.path.join(self.args.path, self.dbfile)
-            try:
-                hashdb.load(dbfile, self.args.path)
-            except IOError:
-                pass
+            # Search for duplicates in all hashed images from database
+            for name, path in dbindex.items():
+                home_dbfile = os.path.join(homepath, name + self.dbfile)
+                hashdb.try_load(home_dbfile, basepath=path)
         if self.args.samplefile:
             self.compare_with_db(hashdb, self.args.samplefile)
         else:
             self.search_db_for_dups(hashdb)
 
     def cmd_clean(self):
-        if self.args.recursive:
-            for dirpath, _filenames in self.walk_directories(self.args.path):
-                dbfile = os.path.join(dirpath, self.dbfile)
-                self.clean_db(dbfile)
-        else:
-            dbfile = os.path.join(self.args.path, self.dbfile)
+        for dirpath in self.all_directories():
+            dbfile = os.path.join(dirpath, self.dbfile)
             self.clean_db(dbfile)
 
-    def walk_directories(self, path):
-        for dirpath, _dirnames, filenames in os.walk(path):
-            filenames = [fname for fname in filenames if self.is_image(fname)]
-            filenames.sort()
-            yield dirpath, filenames
+    def all_directories(self):
+        if self.args.recursive:
+            for dirpath, _dirnames, _filenames in os.walk(self.args.path):
+                yield dirpath
+        else:
+            yield self.args.path
+
+    def all_directories_with_filenames(self):
+        if self.args.recursive:
+            for dirpath, _dirnames, filenames in os.walk(self.args.path):
+                filenames = [fname for fname in filenames if self.is_image(fname)]
+                filenames.sort()
+                yield dirpath, filenames
+        else:
+            filenames = self.list_images(self.args.path)
+            yield self.args.path, filenames
 
     def list_images(self, path):
         for fname in sorted(os.listdir(path)):
@@ -116,6 +138,7 @@ class ImageDups:
         return int(max(stat.st_ctime, stat.st_mtime))
 
     def update_db(self, path, filenames, dbfile, rebuild=False):
+        print('Hashing', path)
         old_hashdb = HashDB(self.imagehash_class)
         new_hashdb = HashDB(self.imagehash_class)
         if not rebuild:

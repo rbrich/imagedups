@@ -55,12 +55,12 @@ class HashDB:
             for fname, imghash in self._hashes.items():
                 print(imghash, fname, file=f)
 
-    def load(self, dbfile, path=''):
+    def load(self, dbfile, basepath=''):
         """Load database from file.
 
         Args:
             dbfile: Source file, including path.
-            path: Path do prepend to all file names loaded from file.
+            basepath: Path do prepend to all file names loaded from file.
 
         """
         with open(dbfile, 'r', encoding='utf8') as f:
@@ -71,7 +71,19 @@ class HashDB:
                     hexhash, fname = line.rstrip().split(' ', 1)
                     imghash = self._imagehash_class()
                     imghash.load(hexhash)
-                    self.add(os.path.join(path, fname), imghash)
+                    self.add(os.path.join(basepath, fname), imghash)
+        print('Loaded', dbfile)
+
+    def try_load(self, *args, basepath=''):
+        for filename in args:
+            try:
+                self.load(filename, basepath)
+                break
+            except IOError:
+                pass
+        else:
+            return False
+        return True
 
     def query(self, imghash, threshold=0.0):
         """Find images close to given hash."""
