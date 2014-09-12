@@ -130,3 +130,13 @@ class RadialImageHash(ImageHash):
     def __str__(self):
         return binascii.hexlify(self._hash).upper().decode()
 
+
+def compute_hash(imagehash_class, filepath):
+    """Helper function which handles errors and prints result."""
+    try:
+        imghash = imagehash_class(filepath)
+    except IOError:
+        return None
+    print(imghash, filepath)
+    return imghash
+

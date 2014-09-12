@@ -3,8 +3,10 @@ import os.path
 import subprocess
 import sys
 import time
+from concurrent.futures import ProcessPoolExecutor as PoolExecutor
+from concurrent.futures import Future
 
-from imagedups.imagehash import ImageHash
+from imagedups.imagehash import ImageHash, compute_hash
 from imagedups.hashdb import HashDB
 from imagedups.dbindex import DBIndex
 
@@ -139,26 +141,33 @@ class ImageDups:
 
     def update_db(self, path, filenames, dbfile, rebuild=False):
         print('Hashing', path)
-        old_hashdb = HashDB(self.imagehash_class)
-        new_hashdb = HashDB(self.imagehash_class)
+        hashdb = HashDB(self.imagehash_class)
         if not rebuild:
+            # Load existing database file
             try:
-                old_hashdb.load(dbfile)
+                hashdb.load(dbfile)
             except IOError:
                 pass
-        try:
+        with PoolExecutor(max_workers=os.cpu_count() or 4) as executor:
+            # Compute hashes for new or updated files
+            hashes = []
             for fname in filenames:
-                imghash = old_hashdb.get(fname)
+                imghash = hashdb.get(fname)
                 filepath = os.path.join(path, fname)
-                if imghash is None or old_hashdb.timestamp < self.time_changed(filepath):
-                    try:
-                        imghash = self.imagehash_class(filepath)
-                    except IOError:
-                        continue
-                    print(imghash, os.path.join(path, fname))
-                new_hashdb.add(fname, imghash)
-        finally:
-            new_hashdb.save(dbfile)
+                if imghash is None or hashdb.timestamp < self.time_changed(filepath):
+                    future_imghash = executor.submit(compute_hash,
+                                                     self.imagehash_class, filepath)
+                    hashes.append((fname, future_imghash))
+                else:
+                    hashes.append((fname, imghash))
+            # Reset database, then add new hashes
+            hashdb.clear()
+            for fname, imghash in hashes:
+                if isinstance(imghash, Future):
+                    imghash = imghash.result(timeout=60)
+                if imghash:
+                    hashdb.add(fname, imghash)
+        hashdb.save(dbfile)
 
     def clean_db(self, dbfile):
         hashdb = HashDB(self.imagehash_class)

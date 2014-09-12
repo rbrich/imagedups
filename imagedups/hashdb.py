@@ -14,6 +14,10 @@ class HashDB:
         """Time of hash database creation."""
         return self._timestamp
 
+    def clear(self):
+        self._hashes.clear()
+        self._timestamp = int(time.time())
+
     def add(self, fname, imghash):
         """Add hash to database.
 
