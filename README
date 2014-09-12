@@ -9,7 +9,7 @@ There are three algorithms for image comparison:
  * radial - Faster
 
 For usage info, see:
-    imagedups --help
+    imagedups.py --help
 
 
 Installation
@@ -25,6 +25,9 @@ Build requires:
 
 Install:
     sudo ./setup.py install
+
+Inplace build (run without installation):
+    ./setup.py build_ext --inplace
 
 
 Programming Documentation

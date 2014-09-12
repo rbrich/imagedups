@@ -13,6 +13,6 @@ setup(
     keywords=['duplicate images', 'perceptual hash', 'pHash'],
     ext_modules = cythonize("phash.pyx"),
     packages=['imagedups'],
-    scripts=['bin/imagedups'],
+    scripts=['imagedups.py'],
     )
 
