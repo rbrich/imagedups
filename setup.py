@@ -11,7 +11,7 @@ setup(
     author_email='radek.brich@devl.cz',
     url='http://hg.devl.cz/imagedups/',
     keywords=['duplicate images', 'perceptual hash', 'pHash'],
-    ext_modules = cythonize('phash.pyx'),
+    ext_modules = cythonize('pyx/phash.pyx'),
     packages=['imagedups'],
     scripts=['imagedups.py'],
     )
