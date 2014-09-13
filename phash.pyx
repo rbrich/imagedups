@@ -4,27 +4,7 @@
 
 import os
 from libc.stdlib cimport free
-
-
-cdef extern from "pHash.h":
-    ctypedef unsigned long long     ulong64 "ulong64"
-    ctypedef unsigned char          uint8_t "uint8_t"
-    ctypedef struct Digest:
-        char *id
-        uint8_t *coeffs
-        int size
-
-    # DCT
-    int ph_dct_imagehash(char *filename, ulong64 &hash)
-    int ph_hamming_distance(ulong64 hashA, ulong64 hashB)
-
-    # Marr-Hildreth
-    uint8_t* ph_mh_imagehash(char *filename, int &N, float alpha, float lvl)
-    double ph_hammingdistance2(uint8_t *hashA, int lenA, uint8_t *hashB, int lenB)
-
-    # Radial Variance
-    int ph_image_digest(char *file, double sigma, double gamma, Digest &digest, int N)
-    int ph_crosscorr(Digest &x, Digest &y, double &pcc, double threshold)
+from cphash cimport *
 
 
 def dct_imagehash(str filename):
@@ -40,9 +20,12 @@ def dct_imagehash(str filename):
         IOError: Image could not be loaded from file.
 
     """
-    cdef ulong64 hash = 0
     filename_enc = os.fsencode(filename)
-    rc = ph_dct_imagehash(filename_enc, hash)
+    cdef char *c_filename_enc = filename_enc
+    cdef ulong64 hash = 0
+    cdef int rc
+    with nogil:
+        rc = ph_dct_imagehash(c_filename_enc, hash)
     if rc == -1:
         raise IOError('Image load failed.')
     return hash
@@ -76,10 +59,12 @@ def mh_imagehash(str filename, float alpha=2.0, float lvl=1.0):
         IOError: Image could not be loaded from file.
 
     """
+    filename_enc = os.fsencode(filename)
+    cdef char *c_filename_enc = filename_enc
     cdef int N = 0
     cdef uint8_t *bytearr
-    filename_enc = os.fsencode(filename)
-    bytearr = ph_mh_imagehash(filename_enc, N, alpha, lvl)
+    with nogil:
+        bytearr = ph_mh_imagehash(c_filename_enc, N, alpha, lvl)
     if bytearr == NULL:
         raise IOError('Image load failed.')
     try:
@@ -121,9 +106,12 @@ def radial_imagehash(str filename, float sigma=1.0, float gamma=1.0, int angles=
         IOError: Image could not be loaded from file.
 
     """
-    cdef Digest digest
     filename_enc = os.fsencode(filename)
-    rc = ph_image_digest(filename_enc, sigma, gamma, digest, angles)
+    cdef char *c_filename_enc = filename_enc
+    cdef Digest digest
+    cdef int rc
+    with nogil:
+        rc = ph_image_digest(c_filename_enc, sigma, gamma, digest, angles)
     if rc == -1:
         raise IOError('Image load failed.')
     try:

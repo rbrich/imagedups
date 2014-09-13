@@ -3,7 +3,7 @@ import os.path
 import subprocess
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor as PoolExecutor
+from concurrent.futures import ThreadPoolExecutor as PoolExecutor
 from concurrent.futures import Future
 
 from imagedups.imagehash import ImageHash, compute_hash
