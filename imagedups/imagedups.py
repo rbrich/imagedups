@@ -109,21 +109,23 @@ class ImageDups:
             self.clean_db(dbfile)
 
     def all_directories(self):
+        path = os.path.abspath(self.args.path)
         if self.args.recursive:
-            for dirpath, _dirnames, _filenames in os.walk(self.args.path):
+            for dirpath, _dirnames, _filenames in os.walk(path):
                 yield dirpath
         else:
-            yield self.args.path
+            yield path
 
     def all_directories_with_filenames(self):
+        path = os.path.abspath(self.args.path)
         if self.args.recursive:
-            for dirpath, _dirnames, filenames in os.walk(self.args.path):
+            for dirpath, _dirnames, filenames in os.walk(path):
                 filenames = [fname for fname in filenames if self.is_image(fname)]
                 filenames.sort()
                 yield dirpath, filenames
         else:
-            filenames = self.list_images(self.args.path)
-            yield self.args.path, filenames
+            filenames = self.list_images(path)
+            yield path, filenames
 
     def list_images(self, path):
         for fname in sorted(os.listdir(path)):
